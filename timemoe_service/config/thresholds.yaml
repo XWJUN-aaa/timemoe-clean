@@ -1,0 +1,49 @@
+# 老化感知阈值配置
+aging_thresholds:
+  critical: 20    # HI < 20 严重告警
+  high: 40        # HI < 40 高风险告警
+  medium: 60      # HI < 60 中风险告警
+  low: 80         # HI < 80 低风险 (正常 > 80)
+
+# 故障趋势阈值配置
+fault_thresholds:
+  critical: 0.8   # 7天故障概率 > 80%
+  high: 0.6       # 7天故障概率 > 60%
+  medium: 0.4     # 7天故障概率 > 40%
+  low: 0.2        # 7天故障概率 < 20%
+
+# 健康指数权重配置
+health_index_weights:
+  temperature: 0.30
+  memory_usage: 0.25
+  voltage: 0.20
+  cpu_usage: 0.10
+  port_errors: 0.10
+  restart_count: 0.05
+
+# 告警规则
+alert_rules:
+  - name: "设备老化严重告警"
+    condition: "health_index < 20"
+    severity: "critical"
+    message: "设备 {device_id} 健康指数过低 ({health_index:.1f}), 请立即检查"
+    enabled: true
+    
+  - name: "设备老化高风险告警"
+    condition: "health_index < 40 and health_index >= 20"
+    severity: "high"
+    message: "设备 {device_id} 健康指数较低 ({health_index:.1f}), 建议尽快维护"
+    enabled: true
+    
+  - name: "故障风险严重告警"
+    condition: "prob_7d > 0.8"
+    severity: "critical"
+    message: "设备 {device_id} 7天内故障概率极高 ({prob_7d:.1%}), 请立即处理"
+    enabled: true
+    
+  - name: "故障风险高告警"
+    condition: "prob_7d > 0.6 and prob_7d <= 0.8"
+    severity: "high"
+    message: "设备 {device_id} 7天内故障概率较高 ({prob_7d:.1%}), 建议关注"
+    enabled: true
+

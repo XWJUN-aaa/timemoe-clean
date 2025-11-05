@@ -1,0 +1,17 @@
+# 服务配置（精简版）
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 2
+
+model:
+  path: "/root/projects/timemoe/timemoe_service/data/models/TimeMoE-50M"
+  device: "npu:0"        # 默认首选设备
+  device_priority:
+    - "npu:0"
+    - "cpu"
+  input_length: 336
+  max_new_tokens: 336
+
+logging:
+  level: "INFO"

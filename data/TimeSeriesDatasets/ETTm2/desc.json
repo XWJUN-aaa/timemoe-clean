@@ -1,0 +1,37 @@
+{
+    "name": "ETTm2",
+    "domain": "electricity transformer temperature",
+    "shape": [
+        57600,
+        7,
+        5
+    ],
+    "num_time_steps": 57600,
+    "num_nodes": 7,
+    "num_features": 5,
+    "feature_description": [
+        "electricity transformer temperature",
+        "time of day",
+        "day of week",
+        "day of month",
+        "day of year"
+    ],
+    "has_graph": false,
+    "frequency (minutes)": 15,
+    "regular_settings": {
+        "INPUT_LEN": 336,
+        "OUTPUT_LEN": 336,
+        "TRAIN_VAL_TEST_RATIO": [
+            0.6,
+            0.2,
+            0.2
+        ],
+        "NORM_EACH_CHANNEL": true,
+        "RESCALE": false,
+        "METRICS": [
+            "MAE",
+            "MSE"
+        ],
+        "NULL_VAL": NaN
+    }
+}
