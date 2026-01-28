@@ -41,6 +41,21 @@ uvicorn app.main:fastapi_app --host 0.0.0.0 --port 8000
 
 打开浏览器访问: http://localhost:8000/api/docs
 
+### 5. 前端控制台（新）
+
+在 `timemoe_service/frontend` 下提供了 React + Vite + AntD 的 Web 控制台，可用于运维人员交互式调用接口。
+
+```bash
+cd timemoe_service/frontend
+npm install            # 需联网
+npm run dev            # 本地开发，默认端口 5173
+npm run build          # 生成 dist/
+```
+
+- 开发环境：直接 `npm run dev` 后访问 http://localhost:5173/ ，后端需开启 CORS（已在 main.py 默认放开，生产可按需收紧域名）。
+- 生产一体化部署：`npm run build` 后，`dist/` 会被 FastAPI 自动挂载（main.py 已检测 `frontend/dist` 并 mount）。
+- 如需单独静态托管，可将 `dist/` 拷贝到 Nginx/OSS 等静态站点即可。
+
 ## API 接口
 
 ### 健康检查
@@ -105,4 +120,3 @@ timemoe_service/
 ## 许可证
 
 [许可证信息]
-
