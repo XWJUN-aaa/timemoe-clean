@@ -55,6 +55,20 @@ class BatchRequest(BaseModel):
 
 # ============== 响应模型 ==============
 
+class AgingForecastPoint(BaseModel):
+    """老化预测序列点"""
+    timestamp: datetime = Field(..., description="预测时间点")
+    temperature: float = Field(..., description="预测温度 (°C)")
+    health_index: float = Field(..., ge=0, le=100, description="预测健康指数 (0-100)")
+
+
+class FaultForecastPoint(BaseModel):
+    """故障预测序列点"""
+    timestamp: datetime = Field(..., description="预测时间点")
+    temperature: float = Field(..., description="预测温度 (°C)")
+    fault_probability: float = Field(..., ge=0, le=1, description="该时刻故障概率 (0-1)")
+
+
 class Contributor(BaseModel):
     """贡献因子"""
     metric: str = Field(..., description="指标名称")
@@ -70,6 +84,13 @@ class AgingResult(BaseModel):
     risk_level: str = Field(..., description="风险等级: low/medium/high/critical")
     contributors: List[Contributor] = Field(default_factory=list, description="贡献因子")
     prediction_time: datetime = Field(default_factory=datetime.now, description="预测时间")
+    forecast: List[AgingForecastPoint] = Field(default_factory=list, description="未来逐小时预测序列")
+    forecast_interval_hours: int = Field(1, description="预测时间间隔 (小时)")
+    forecast_horizon_hours: int = Field(0, description="预测总时长 (小时)")
+    memory_usage: Optional[float] = Field(None, description="最新内存使用率 (%)")
+    cpu_usage: Optional[float] = Field(None, description="最新CPU使用率 (%)")
+    voltage: Optional[float] = Field(None, description="最新电压 (V)")
+    temperature: Optional[float] = Field(None, description="最新温度 (°C)")
 
 
 class FaultTrendResult(BaseModel):
@@ -81,6 +102,13 @@ class FaultTrendResult(BaseModel):
     risk_level: str = Field(..., description="风险等级: low/medium/high/critical")
     explanation: str = Field(default="", description="预测解释")
     prediction_time: datetime = Field(default_factory=datetime.now, description="预测时间")
+    forecast: List[FaultForecastPoint] = Field(default_factory=list, description="未来逐小时故障趋势")
+    forecast_interval_hours: int = Field(1, description="预测时间间隔 (小时)")
+    forecast_horizon_hours: int = Field(0, description="预测总时长 (小时)")
+    memory_usage: Optional[float] = Field(None, description="最新内存使用率 (%)")
+    cpu_usage: Optional[float] = Field(None, description="最新CPU使用率 (%)")
+    voltage: Optional[float] = Field(None, description="最新电压 (V)")
+    temperature: Optional[float] = Field(None, description="最新温度 (°C)")
 
 
 class AgingResponse(BaseModel):
@@ -114,4 +142,3 @@ class HealthResponse(BaseModel):
     model_loaded: bool = Field(..., description="模型是否已加载")
     device: str = Field(..., description="推理设备")
     timestamp: datetime = Field(default_factory=datetime.now, description="时间戳")
-

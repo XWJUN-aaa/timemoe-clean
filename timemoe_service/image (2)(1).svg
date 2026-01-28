@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="950" viewBox="0 0 800 950">
+<defs>
+<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+<polygon points="0 0, 10 3.5, 0 7" fill="#000"/>
+</marker>
+</defs>
+<text x="400" y="40" text-anchor="middle" font-size="16" font-weight="bold" transform="matrix(1 0 0 1 0 0)">前端层</text>
+<rect x="200" y="50" width="400" height="60" rx="5" ry="5" fill="#e6f7ff" stroke="#1890ff" stroke-width="2"/>
+<text x="400" y="75" text-anchor="middle" font-size="14" style="cursor: move;" transform="matrix(1 0 0 1 0 0)">前端展示（自智自愈配网全景化运维管控系统）</text>
+<text x="400" y="95" text-anchor="middle" font-size="14">Vue + ElementPlus</text>
+<line x1="400" y1="110" x2="400" y2="140" stroke="#000" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="400" y="156" text-anchor="middle" font-size="16" font-weight="bold">业务后端层（SpringBoot）</text>
+<rect x="300" y="170" width="200" height="73.00000190734863" rx="5" ry="5" fill="#fff2e8" stroke="#f5222d" stroke-width="2"/>
+<text x="400" y="195" text-anchor="middle" font-size="14">运维管控后端</text>
+<text x="400" y="215" text-anchor="middle" font-size="14">SpringBoot REST API</text>
+<line x1="400" y1="250" x2="400" y2="280" stroke="#000" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="400" y="296" text-anchor="middle" font-size="16" font-weight="bold" transform="matrix(1 0 0 1 0 0)">部署与性能优化（算法微服务）</text>
+<rect x="86.99999802347293" y="310" width="200.00000126127134" height="60" rx="5" ry="5" fill="#fff7e6" stroke="#fa8c16" stroke-width="2"/>
+<text x="190" y="335" text-anchor="middle" font-size="14">部署：Gunicorn + Flask</text>
+<text x="190" y="355" text-anchor="middle" font-size="14">多进程/多线程，提高并发能力</text>
+<rect x="310" y="310" width="180" height="60" rx="5" ry="5" fill="#fff1f0" stroke="#f5222d" stroke-width="2"/>
+<text x="400" y="335" text-anchor="middle" font-size="14" transform="matrix(1 0 0 1 0 0)">任务队列：Redis / MQ</text>
+<text x="400" y="355" text-anchor="middle" font-size="14" transform="matrix(1 0 0 1 0 0)">异步推理，避免阻塞</text>
+<rect x="514.0000057220459" y="310" width="185.9999942779541" height="60" rx="5" ry="5" fill="#f9f0ff" stroke="#725ed1" stroke-width="2" stroke-opacity="1"/>
+<text x="610" y="335" text-anchor="middle" font-size="14" transform="matrix(1 0 0 1 0 0)">推理加速：TorchServe</text>
+<text x="610" y="355" text-anchor="middle" font-size="14" transform="matrix(1 0 0 1 0 0)">模型服务化 / 批处理</text>
+<line x1="400" y1="374" x2="400" y2="404" stroke="#000" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="400" y="421" text-anchor="middle" font-size="16" font-weight="bold">算法微服务层（Flask API）</text>
+<rect x="300" y="442" width="210.999995470047" height="60.999999046325684" rx="5" ry="5" fill="#e6f7ff" stroke="#1890ff" stroke-width="2"/>
+<line x1="400" y1="510" x2="400" y2="540" stroke="#000" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+<text x="400" y="557" text-anchor="middle" font-size="16" font-weight="bold">存储层</text>
+<rect x="194" y="570" width="200" height="60" rx="5" ry="5" fill="#fff1f0" stroke="#ff0000" stroke-width="2" fill-opacity="1" stroke-opacity="1"/>
+<text x="294" y="595" text-anchor="middle" font-size="14">时序数据库</text>
+<text x="294" y="615" text-anchor="middle" font-size="14" transform="matrix(1 0 0 1 0 0)">TDengine</text>
+<text x="248" y="667.6087140981862" text-anchor="middle" font-size="14">数据流向：实时数据：API → Flask → 模型 → 返回结果</text>
+<text x="404.91499376296997" y="476.1000213623047" text-anchor="middle" font-size="14" transform="matrix(1 0 0 1 0 0)">TimeMOE 时序大模型</text>
+<rect x="416.99999237060547" y="568.5000228881836" width="200" height="60" rx="5" ry="5" fill="#fff1f0" stroke="#ff0000" stroke-width="2" fill-opacity="1" stroke-opacity="1">TDengine任务队列：Red</rect>
+<text x="519.9999923706055" y="593.5000228881836" text-anchor="middle" font-size="14" transform="matrix(1 0 0 1 0 0)">关系型数据库</text>
+<text x="519.9999923706055" y="613.5000228881836" text-anchor="middle" font-size="14" style="cursor: move;" transform="matrix(1 0 0 1 0 0)">Mysql</text>
+</svg>

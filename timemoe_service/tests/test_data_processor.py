@@ -47,6 +47,14 @@ def test_compute_health_score_bounds() -> None:
     assert healthy > hot_device
 
 
+def test_low_voltage_device_not_over_penalized() -> None:
+    processor = DataProcessor({})
+    low_voltage = processor.compute_health_score(
+        {"temperature": 30.0, "memory_usage": 0.2, "cpu_usage": 0.2, "voltage": 24.5}
+    )
+    assert low_voltage > 40.0
+
+
 def test_fault_probability_and_risk() -> None:
     processor = DataProcessor({})
     temps = np.linspace(35.0, 80.0, 336)
@@ -58,7 +66,7 @@ def test_fault_probability_and_risk() -> None:
 
 
 def test_estimate_time_to_threshold_detects_breach() -> None:
-    processor = DataProcessor({})
+    processor = DataProcessor({"forecast_interval_hours": 1})
     series = np.array([90.0, 70.0, 55.0, 35.0], dtype=np.float32)
     tte = processor.estimate_time_to_threshold(
         series, processor.HEALTH_WARN_THRESHOLD

@@ -12,6 +12,7 @@ model:
     - "cpu"
   input_length: 336
   max_new_tokens: 336
+  forecast_interval_hours: 24
 
 logging:
   level: "INFO"

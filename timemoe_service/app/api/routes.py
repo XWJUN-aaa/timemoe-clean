@@ -1,8 +1,11 @@
 """
 FastAPI 路由定义
 """
+import json
+import logging
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, HTTPException, status
-from typing import List
 
 from app.api.models import (
     AgingRequest, AgingResponse, AgingResult,
@@ -25,6 +28,53 @@ def set_engine(e: TimeMoEEngine):
     """设置全局引擎实例"""
     global engine
     engine = e
+
+
+def _get_processor_attr(attr: str, default: Any = None) -> Any:
+    if not engine:
+        return default
+    processor = getattr(engine, "processor", None)
+    return getattr(processor, attr, default) if processor else default
+
+
+def _log_history_stats(
+    request_name: str,
+    device_id: str,
+    historical_data: Optional[List[Dict[str, Any]]],
+) -> int:
+    history_len = len(historical_data or [])
+    input_len = _get_processor_attr("input_length", 0)
+    interval_hours = _get_processor_attr("interval_hours", 1)
+    output_len = _get_processor_attr("output_length", 0)
+    horizon_hours = interval_hours * output_len if output_len else 0
+
+    logger.info(
+        "%s: device_id=%s, 历史点数=%d, 模型窗口=%s, interval=%sh, horizon=%sh",
+        request_name,
+        device_id,
+        history_len,
+        input_len or "unknown",
+        interval_hours,
+        horizon_hours or "unknown",
+    )
+    if input_len and history_len < input_len:
+        logger.warning(
+            "%s: 历史点数(%d)低于 input_length(%d)，可能无法生成完整序列",
+            request_name,
+            history_len,
+            input_len,
+        )
+    return history_len
+
+
+def _log_prediction_payload(tag: str, payload: Any) -> None:
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    try:
+        serialized = json.dumps(payload, ensure_ascii=False, default=str)
+    except TypeError:
+        serialized = str(payload)
+    logger.debug("[%s] %s", tag, serialized)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -71,12 +121,15 @@ async def predict_aging(request: AgingRequest):
             )
         
         logger.info(f"收到老化预测请求: device_id={request.device_id}")
+        _log_history_stats("老化预测请求", request.device_id, request.historical_data)
 
         prediction = engine.predict_aging(request.model_dump())
+        _log_prediction_payload("aging.raw_prediction", prediction)
         contributor_items: List[Contributor] = [
             Contributor(**item) for item in prediction.get("contributors", [])
         ]
         result = AgingResult(**{**prediction, "contributors": contributor_items})
+        _log_prediction_payload("aging.response_body", result.model_dump())
 
         return AgingResponse(
             success=True,
@@ -115,9 +168,12 @@ async def predict_fault(request: FaultRequest):
             )
         
         logger.info(f"收到故障趋势预测请求: device_id={request.device_id}")
+        _log_history_stats("故障趋势请求", request.device_id, request.historical_data)
 
         prediction = engine.predict_fault_trend(request.model_dump())
+        _log_prediction_payload("fault.raw_prediction", prediction)
         result = FaultTrendResult(**prediction)
+        _log_prediction_payload("fault.response_body", result.model_dump())
 
         return FaultResponse(
             success=True,

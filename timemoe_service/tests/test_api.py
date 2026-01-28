@@ -67,6 +67,10 @@ class FakeEngine:
                 {"metric": "memory_usage", "weight": 0.3},
                 {"metric": "cpu_usage", "weight": 0.2},
             ],
+            "memory_usage": 43.2,
+            "cpu_usage": 58.9,
+            "voltage": 222.7,
+            "temperature": 64.1,
         }
 
     def predict_fault_trend(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -78,6 +82,10 @@ class FakeEngine:
             "prob_30d": 0.55,
             "risk_level": "high",
             "explanation": "测试桩返回的风险解释",
+            "memory_usage": 43.2,
+            "cpu_usage": 58.9,
+            "voltage": 222.7,
+            "temperature": 64.1,
         }
 
 
@@ -140,6 +148,10 @@ def test_predict_aging(client: SyncASGIClient) -> None:
     assert result["device_id"] == "dev-001"
     assert result["risk_level"] == "medium"
     assert len(result["contributors"]) == 3
+    assert result["memory_usage"] == pytest.approx(43.2)
+    assert result["cpu_usage"] == pytest.approx(58.9)
+    assert result["voltage"] == pytest.approx(222.7)
+    assert result["temperature"] == pytest.approx(64.1)
 
 
 def test_predict_fault(client: SyncASGIClient) -> None:
@@ -151,6 +163,10 @@ def test_predict_fault(client: SyncASGIClient) -> None:
     assert result["device_id"] == "dev-001"
     assert result["risk_level"] == "high"
     assert result["prob_30d"] == pytest.approx(0.55)
+    assert result["memory_usage"] == pytest.approx(43.2)
+    assert result["cpu_usage"] == pytest.approx(58.9)
+    assert result["voltage"] == pytest.approx(222.7)
+    assert result["temperature"] == pytest.approx(64.1)
 
 
 def test_batch_predict(client: SyncASGIClient) -> None:

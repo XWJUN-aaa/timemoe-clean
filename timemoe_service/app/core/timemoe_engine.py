@@ -15,6 +15,8 @@ from app.core.data_processor import DataProcessor
 class TimeMoEEngine:
     """TimeMoE 推理引擎"""
 
+    SNAPSHOT_FIELDS = ("memory_usage", "cpu_usage", "voltage", "temperature")
+
     def __init__(
         self,
         model_path: Optional[str] = None,
@@ -47,6 +49,69 @@ class TimeMoEEngine:
         self.model = None
         self._initialized = False
         self.processor = DataProcessor(model_cfg)
+        logger.info(
+            "TimeMoE 模型配置: model_path=%s, input_length=%d, output_length=%d, "
+            "forecast_interval=%sh, 预期horizon=%sh",
+            self.model_path,
+            self.processor.input_length,
+            self.processor.output_length,
+            self.processor.interval_hours,
+            self.processor.output_length * self.processor.interval_hours,
+        )
+
+    @staticmethod
+    def _first_numeric_value(
+        sources: Sequence[Dict[str, Any]], key: str
+    ) -> Optional[float]:
+        for source in sources:
+            if not isinstance(source, dict):
+                continue
+            value = source.get(key)
+            if value is None:
+                continue
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    @staticmethod
+    def _format_usage_percentage(value: float) -> Optional[float]:
+        numeric = float(value)
+        if numeric < 0:
+            return None
+        if numeric <= 1.0:
+            numeric *= 100.0
+        return round(numeric, 2)
+
+    def _extract_snapshot_metrics(self, payload: Dict[str, Any]) -> Dict[str, Optional[float]]:
+        sources: List[Dict[str, Any]] = []
+
+        snapshot = payload.get("device_snapshot")
+        if isinstance(snapshot, dict):
+            sources.append(snapshot)
+
+        metrics = payload.get("metrics")
+        if isinstance(metrics, dict):
+            sources.append(metrics)
+
+        history = payload.get("historical_data")
+        if isinstance(history, Sequence) and not isinstance(history, (str, bytes)):
+            for record in reversed(history):
+                if isinstance(record, dict):
+                    sources.append(record)
+
+        result: Dict[str, Optional[float]] = {}
+        for field in self.SNAPSHOT_FIELDS:
+            raw_value = self._first_numeric_value(sources, field)
+            if raw_value is None:
+                result[field] = None
+                continue
+            if field in {"memory_usage", "cpu_usage"}:
+                result[field] = self._format_usage_percentage(raw_value)
+            else:
+                result[field] = round(float(raw_value), 2)
+        return result
 
     @staticmethod
     def _deduplicate_devices(candidates: Sequence[str]) -> List[str]:
@@ -194,6 +259,7 @@ class TimeMoEEngine:
 
         metrics = payload.get("metrics", {})
         history = payload.get("historical_data")
+        snapshot_metrics = self._extract_snapshot_metrics(payload)
 
         normalized, mean, std, series = self.processor.prepare_sequence(
             metrics=metrics, historical_data=history
@@ -210,6 +276,10 @@ class TimeMoEEngine:
         current_health = self.processor.compute_health_score(metrics, temperature=float(series[-1]))
         future_health = self.processor.compute_health_series(future_temperatures, metrics)
 
+        timestamps = self.processor.build_forecast_timestamps(
+            payload.get("timestamp"),
+            len(future_temperatures),
+        )
         tte = self.processor.estimate_time_to_threshold(
             future_health, self.processor.HEALTH_WARN_THRESHOLD
         )
@@ -222,6 +292,14 @@ class TimeMoEEngine:
             {"metric": name, "weight": round(weight, 4)}
             for name, weight in self.processor.build_contributors(metrics)
         ]
+        forecast_points = [
+            {
+                "timestamp": ts,
+                "temperature": round(float(temp), 2),
+                "health_index": round(float(health), 2),
+            }
+            for ts, temp, health in zip(timestamps, future_temperatures, future_health)
+        ]
 
         return {
             "device_id": payload.get("device_id"),
@@ -230,6 +308,10 @@ class TimeMoEEngine:
             "rul_hours": rul,
             "risk_level": risk_level,
             "contributors": contributors,
+            "forecast": forecast_points,
+            "forecast_interval_hours": self.processor.interval_hours,
+            "forecast_horizon_hours": len(forecast_points) * self.processor.interval_hours,
+            **snapshot_metrics,
         }
     
     def predict_fault_trend(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -247,6 +329,7 @@ class TimeMoEEngine:
 
         metrics = payload.get("metrics", {})
         history = payload.get("historical_data")
+        snapshot_metrics = self._extract_snapshot_metrics(payload)
 
         normalized, mean, std, _ = self.processor.prepare_sequence(
             metrics=metrics, historical_data=history
@@ -260,15 +343,35 @@ class TimeMoEEngine:
         future_temperatures = (generated * std) + mean
         future_temperatures = future_temperatures.flatten()
 
-        probs = self.processor.compute_fault_probabilities(future_temperatures)
+        fault_prob_curve = self.processor.compute_fault_prob_curve(future_temperatures)
+        probs = self.processor.compute_fault_probabilities(
+            future_temperatures,
+            prob_curve=fault_prob_curve,
+        )
         risk_level = self.processor.risk_from_probabilities(probs)
         explanation = self.processor.build_fault_explanation(probs, future_temperatures)
+        timestamps = self.processor.build_forecast_timestamps(
+            payload.get("timestamp"),
+            len(future_temperatures),
+        )
+        trend_points = [
+            {
+                "timestamp": ts,
+                "temperature": round(float(temp), 2),
+                "fault_probability": round(float(prob), 4),
+            }
+            for ts, temp, prob in zip(timestamps, future_temperatures, fault_prob_curve)
+        ]
 
         return {
             "device_id": payload.get("device_id"),
             **{key: round(value, 4) for key, value in probs.items()},
             "risk_level": risk_level,
             "explanation": explanation,
+            "forecast": trend_points,
+            "forecast_interval_hours": self.processor.interval_hours,
+            "forecast_horizon_hours": len(trend_points) * self.processor.interval_hours,
+            **snapshot_metrics,
         }
     
     def is_available(self) -> bool:

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -22,6 +22,7 @@ class DataProcessor:
         cfg = config or {}
         self.input_length = int(cfg.get("input_length", self.DEFAULT_INPUT_LENGTH))
         self.output_length = int(cfg.get("max_new_tokens", self.DEFAULT_OUTPUT_LENGTH))
+        self.interval_hours = max(1, int(cfg.get("forecast_interval_hours", 24)))
 
     # ------------------------------------------------------------------ #
     # 序列构建与归一化
@@ -91,6 +92,23 @@ class DataProcessor:
             logger.debug("无法解析时间戳: %s", value)
             return None
 
+    def build_forecast_timestamps(
+        self,
+        base_timestamp: Any,
+        steps: int,
+    ) -> List[datetime]:
+        """
+        以设备上报时间为起点生成未来预测时间轴。
+        """
+        steps = max(0, steps)
+        parsed = self._parse_timestamp(base_timestamp)
+        base = parsed or datetime.now(timezone.utc)
+        interval = max(1, self.interval_hours)
+        return [
+            base + timedelta(hours=(idx + 1) * interval)
+            for idx in range(steps)
+        ]
+
     @staticmethod
     def _extract_primary_metric(record: Dict[str, Any]) -> Optional[float]:
         for key in (
@@ -121,17 +139,38 @@ class DataProcessor:
             if temperature is not None
             else metrics.get("temperature", 30.0)
         )
-        voltage = float(metrics.get("voltage", 220.0))
+        raw_voltage = metrics.get("voltage", 220.0)
+        try:
+            voltage = float(raw_voltage)
+        except (TypeError, ValueError):
+            voltage = 220.0
         mem = float(metrics.get("memory_usage", 0.5))
         cpu = float(metrics.get("cpu_usage", 0.5))
 
         temp_penalty = max(0.0, temp - 35.0) * 2.0
-        voltage_penalty = max(0.0, abs(voltage - 220.0) / 2.0)
+        voltage_penalty = self._compute_voltage_penalty(voltage)
         mem_penalty = mem * 25.0
         cpu_penalty = cpu * 20.0
 
         score = 100.0 - (temp_penalty + voltage_penalty + mem_penalty + cpu_penalty)
         return float(np.clip(score, 0.0, 100.0))
+
+    @staticmethod
+    def _compute_voltage_penalty(voltage: float) -> float:
+        """针对不同供电档位自适应计算电压惩罚。"""
+        nominal = DataProcessor._infer_nominal_voltage(voltage)
+        return max(0.0, abs(voltage - nominal) / 2.0)
+
+    @staticmethod
+    def _infer_nominal_voltage(voltage: float) -> float:
+        """根据实测值推断最接近的供电额定电压。"""
+        try:
+            value = abs(float(voltage))
+        except (TypeError, ValueError):
+            return 220.0
+        candidates = (12.0, 24.0, 48.0, 110.0, 220.0)
+        closest = min(candidates, key=lambda target: abs(value - target))
+        return closest
 
     def compute_health_series(
         self, future_temperatures: np.ndarray, metrics: Dict[str, Any]
@@ -164,7 +203,7 @@ class DataProcessor:
         indices = np.where(health_series < threshold)[0]
         if len(indices) == 0:
             return None
-        return int(indices[0])  # 序列按小时排列
+        return int(indices[0] * self.interval_hours)  # 序列按 interval_hours 计算
 
     def compute_risk_level(
         self, current_health: float, future_health: Optional[np.ndarray] = None
@@ -182,20 +221,33 @@ class DataProcessor:
             return "medium"
         return "low"
 
+    def compute_fault_prob_curve(self, future_temperatures: np.ndarray) -> np.ndarray:
+        """
+        为每个未来时间点计算单点故障概率。
+        """
+        return np.array(
+            [self._sigmoid((float(temp) - 35.0) / 5.0) for temp in future_temperatures],
+            dtype=np.float32,
+        )
+
     def compute_fault_probabilities(
-        self, future_temperatures: np.ndarray
+        self,
+        future_temperatures: np.ndarray,
+        prob_curve: Optional[np.ndarray] = None,
     ) -> Dict[str, float]:
         """基于未来温度曲线估计 7/14/30 天故障概率。"""
-        horizon_map = {"prob_7d": 7 * 24, "prob_14d": 14 * 24, "prob_30d": 30 * 24}
+        curve = prob_curve
+        if curve is None:
+            curve = self.compute_fault_prob_curve(future_temperatures)
+        horizon_map = {"prob_7d": 7, "prob_14d": 14, "prob_30d": 30}  # 单位: 天
         probs = {}
         for key, horizon in horizon_map.items():
-            window = future_temperatures[: min(len(future_temperatures), horizon)]
+            steps_needed = max(1, int(math.ceil((horizon * 24) / self.interval_hours)))
+            window = curve[: min(len(curve), steps_needed)]
             if len(window) == 0:
                 probs[key] = 0.0
-                continue
-            max_temp = float(window.max())
-            # logistic 映射，高温越高概率越大
-            probs[key] = self._sigmoid((max_temp - 35.0) / 5.0)
+            else:
+                probs[key] = float(window.max())
         return probs
 
     @staticmethod
@@ -222,4 +274,3 @@ class DataProcessor:
             f"预测峰值温度约 {peak:.1f}°C，{dominant} 风险最高("
             f"{probs[dominant]*100:.1f}%)，建议关注散热与负载。"
         )
-
